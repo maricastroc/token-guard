@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowUpRight, Check, Eye, Link2 } from 'lucide-react';
-import type { Theme } from '@/lib/color';
-import { oklchToHex } from '@/lib/color';
+import { ArrowUpRight, Check, Eye, Link2, SlidersHorizontal } from 'lucide-react';
+import type { OKLCH, Theme, ThemeSet, TokenName } from '@/lib/color';
+import { clampChromaToGamut, oklchToHex } from '@/lib/color';
 import { useInViewOnce } from '@/components/useInViewOnce';
 import type { GenerateResult } from '@/features/llm/types';
+import { assembleFromMaterialized, type ResultMeta } from '@/features/llm/generate';
 import { Segmented } from '@/components/ui/Segmented';
 import { SpecimenBoard } from '@/features/result/SpecimenBoard';
+import { TokenTuner } from '@/features/result/TokenTuner';
 import { ThemesPanel } from '@/features/result/ThemesPanel';
 import { AuditMatrix } from '@/features/result/AuditMatrix';
 import { RepairTrace } from '@/features/result/RepairTrace';
@@ -101,7 +103,11 @@ export function App() {
   const [morphing, setMorphing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [vision, setVision] = useState<VisionMode>('normal');
+  const [tuning, setTuning] = useState(false);
+  const [edited, setEdited] = useState(false);
+  const [baseResult, setBaseResult] = useState<GenerateResult>(DEFAULT_RESULT);
   const morphTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const workMat = useRef<ThemeSet | null>(null);
 
   function triggerMorph() {
     setMorphing(true);
@@ -111,15 +117,51 @@ export function App() {
 
   useEffect(() => () => clearTimeout(morphTimer.current), []);
 
+  function commitBase(r: GenerateResult) {
+    workMat.current = null;
+    setResult(r);
+    setBaseResult(r);
+    setEdited(false);
+  }
+
   useEffect(() => {
     const encoded = new URLSearchParams(window.location.search).get('p');
     if (!encoded) return;
     const decoded = decodePalette(encoded);
     if (!decoded) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setResult(decoded);
+    commitBase(decoded);
     setHasGenerated(true);
   }, []);
+
+  function editToken(token: TokenName, patch: Partial<OKLCH>) {
+    const base =
+      workMat.current ?? { light: { ...result.proposal.light }, dark: { ...result.proposal.dark } };
+    const merged = clampChromaToGamut({ ...base[theme][token], ...patch });
+    const themePalette = { ...base[theme], [token]: merged };
+
+    if (token === 'primary' && patch.h !== undefined) {
+      for (const t of ['primaryHover', 'primaryActive', 'focusRing', 'selection'] as TokenName[]) {
+        themePalette[t] = clampChromaToGamut({ ...themePalette[t], h: merged.h });
+      }
+    }
+    const next: ThemeSet = { ...base, [theme]: themePalette };
+    workMat.current = next;
+    const meta: ResultMeta = {
+      name: result.name,
+      rationale: result.rationale,
+      scheme: result.scheme,
+      source: result.source,
+    };
+    setResult(assembleFromMaterialized(next, meta));
+    setEdited(true);
+    setHasGenerated(true);
+  }
+
+  function resetTune() {
+    commitBase(baseResult);
+    triggerMorph();
+  }
 
   function share() {
     const url = `${window.location.origin}${window.location.pathname}?p=${encodePalette(result)}`;
@@ -143,7 +185,7 @@ export function App() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? 'Generation failed.');
-      setResult(data as GenerateResult);
+      commitBase(data as GenerateResult);
       setHasGenerated(true);
       setStatus('idle');
       triggerMorph();
@@ -155,7 +197,7 @@ export function App() {
 
   function applyPreset(p: Preset) {
     setFields(p.fields);
-    setResult(p.result);
+    commitBase(p.result);
     setHasGenerated(true);
     setError(null);
     setStatus('idle');
@@ -262,7 +304,7 @@ export function App() {
               >
                 <SpecimenBoard palette={activePalette} morphing={morphing} />
               </div>
-              <div className="mt-3 flex min-h-[16px] items-center justify-center">
+              <div className="mt-3 flex min-h-4 items-center justify-center">
                 {visionCaption && (
                   <span className="coord text-center text-[11px] text-zinc-500">{visionCaption}</span>
                 )}
@@ -282,6 +324,33 @@ export function App() {
                 )}
               </AnimatePresence>
             </div>
+
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setTuning((t) => !t)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                  tuning
+                    ? 'bg-zinc-900 text-white'
+                    : 'border border-black/10 bg-white text-zinc-600 hover:border-black/20 hover:text-zinc-900'
+                }`}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                {tuning ? 'Close tuner' : 'Tune tokens'}
+              </button>
+            </div>
+            {tuning && (
+              <div className="mx-auto mt-4 max-w-4xl">
+                <TokenTuner
+                  palette={activePalette}
+                  theme={theme}
+                  trace={result.trace[theme]}
+                  edited={edited}
+                  onEdit={editToken}
+                  onReset={resetTune}
+                />
+              </div>
+            )}
           </div>
 
           <div className="mx-auto mt-10 max-w-3xl">
@@ -326,7 +395,7 @@ export function App() {
                 {harmony.ok ? 'In harmony' : `${harmony.deviations.length} off-scheme`}
               </span>
               <span className="coord rounded-full border border-black/8 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                {!hasGenerated ? 'Sample' : result.source === 'mock' ? 'Preset' : 'AI-generated'}
+                {edited ? 'Tuned' : !hasGenerated ? 'Sample' : result.source === 'mock' ? 'Preset' : 'AI-generated'}
               </span>
             </div>
             <p className="mx-auto mt-2 max-w-xl text-[14px] leading-relaxed text-zinc-500">
