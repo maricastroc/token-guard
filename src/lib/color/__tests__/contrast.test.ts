@@ -16,7 +16,6 @@ describe('relativeLuminance', () => {
   it('matches WCAG reference values', () => {
     expect(relativeLuminance({ r: 0, g: 0, b: 0 })).toBeCloseTo(0, 6);
     expect(relativeLuminance({ r: 1, g: 1, b: 1 })).toBeCloseTo(1, 6);
-    // sRGB green is the dominant luminance channel.
     expect(relativeLuminance({ r: 0, g: 1, b: 0 })).toBeCloseTo(0.7152, 4);
   });
 });

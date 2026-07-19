@@ -1,8 +1,3 @@
-/**
- * The result contract the UI consumes. Everything the six result areas need,
- * assembled once on the server.
- */
-
 import type {
   HarmonyReport,
   HarmonyScheme,
@@ -16,12 +11,9 @@ export interface GenerateResult {
   name: string;
   rationale: string;
   scheme: HarmonyScheme;
-  /** Whether the proposal came from the LLM or the offline mock. */
   source: 'llm' | 'mock';
 
-  /** The materialized proposal, BEFORE repair (drives the Repair Trace's "AI" column). */
   proposal: ThemeSet;
-  /** The final, guaranteed-accessible tokens, AFTER repair. */
   themes: ThemeSet;
 
   auditBefore: { light: VerifyReport; dark: VerifyReport };
@@ -30,11 +22,9 @@ export interface GenerateResult {
   infeasible: { light: TokenName[]; dark: TokenName[] };
   harmony: { light: HarmonyReport; dark: HarmonyReport };
 
-  /** Static semantic meaning of each token, for the swatch cards. */
   descriptions: Record<TokenName, string>;
 }
 
-/** What each token means. Static — this is semantics, not a creative choice. */
 export const TOKEN_DESCRIPTIONS: Record<TokenName, string> = {
   bg: 'App background — the furthest-back canvas.',
   surface: 'Default surface for cards and panels.',

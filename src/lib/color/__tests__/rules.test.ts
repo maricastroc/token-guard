@@ -44,7 +44,7 @@ describe('rule table integrity', () => {
 
   it('rulesForToken returns only rules with that foreground', () => {
     for (const r of rulesForToken('text')) expect(r.fg).toBe('text');
-    expect(rulesForToken('text').length).toBeGreaterThan(1); // multi-constraint
+    expect(rulesForToken('text').length).toBeGreaterThan(1);
   });
 });
 

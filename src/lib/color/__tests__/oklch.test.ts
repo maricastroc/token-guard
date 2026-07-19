@@ -42,8 +42,6 @@ describe('oklch ↔ srgb', () => {
     fc.assert(
       fc.property(oklchArb, (color) => {
         const back = srgbToOklch(oklchToSrgb(color));
-        // Lightness round-trips within 0.02 across the whole gamut (tighter in the
-        // interior; the loosest points are gamut-clipped extremes near black/white).
         expect(Math.abs(back.l - color.l)).toBeLessThanOrEqual(0.02);
         if (color.c > 0.02 && color.l > 0.05 && color.l < 0.95) {
           expect(back.c).toBeCloseTo(color.c, 2);

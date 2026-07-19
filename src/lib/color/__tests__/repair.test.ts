@@ -12,7 +12,6 @@ import {
   lightAnchoredPaletteArb,
 } from './helpers';
 
-/** Does the token at lightness `l` pass all its rules at the required minimum? */
 function passesAtMin(palette: Palette, token: TokenName, l: number): boolean {
   const color: OKLCH = { ...palette[token], l };
   return rulesForToken(token).every(
@@ -20,7 +19,6 @@ function passesAtMin(palette: Palette, token: TokenName, l: number): boolean {
   );
 }
 
-/** Closest passing lightness to `proposedL`, found by brute-force scan (ground truth). */
 function scanClosestPassing(
   palette: Palette,
   token: TokenName,
@@ -60,7 +58,7 @@ describe('repair — unit', () => {
   });
 
   it('leaves an already-passing token untouched (ΔL = 0)', () => {
-    const src = lightPalette(); // text is 0.25 on white — already fine
+    const src = lightPalette();
     const { trace } = repair(src);
     const text = trace.find((t) => t.token === 'text')!;
     expect(text.passedBefore).toBe(true);
@@ -73,17 +71,15 @@ describe('repair — unit', () => {
   });
 
   it('when both polarities are valid, picks the one closer to the proposal', () => {
-    // A focus ring (ui, 3:1) on a mid-tone surface can satisfy 3:1 either dark
-    // OR light. Proposed slightly-light → repair should push it lighter, not dark.
     const p = makePalette({
       surface: { l: 0.5, c: 0, h: 0 },
       bg: { l: 0.5, c: 0, h: 0 },
-      focusRing: { l: 0.62, c: 0, h: 0 }, // fails (too close to surface)
+      focusRing: { l: 0.62, c: 0, h: 0 },
     });
     const step = repair(p).trace.find((t) => t.token === 'focusRing')!;
     expect(step.passedBefore).toBe(false);
     expect(step.passedAfter).toBe(true);
-    expect(step.deltaL).toBeGreaterThan(0); // moved lighter, the nearer feasible side
+    expect(step.deltaL).toBeGreaterThan(0);
   });
 
   it('records the binding rule and post-repair ratio', () => {
@@ -96,8 +92,6 @@ describe('repair — unit', () => {
 
 describe('repair — infeasibility (honesty)', () => {
   it('reports a token that cannot be satisfied by lightness alone', () => {
-    // `text` must be dark against a white surface AND light against a black
-    // selection — no single lightness can do both.
     const p = makePalette({
       bg: { l: 1, c: 0, h: 0 },
       surface: { l: 1, c: 0, h: 0 },
@@ -169,10 +163,9 @@ describe('repair — properties', () => {
         const { palette, trace } = repair(src);
         for (const step of trace) {
           const optimum = scanClosestPassing(src, step.token, step.proposedL);
-          if (optimum === null) continue; // infeasible; handled elsewhere
+          if (optimum === null) continue;
           const repairedDist = Math.abs(palette[step.token].l - step.proposedL);
           const optimumDist = Math.abs(optimum - step.proposedL);
-          // repair must not overshoot the closest passing solution.
           expect(repairedDist).toBeLessThanOrEqual(optimumDist + 0.03);
         }
       }),

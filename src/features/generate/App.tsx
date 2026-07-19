@@ -1,0 +1,323 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowUpRight } from 'lucide-react';
+import type { Theme } from '@/lib/color';
+import { oklchToHex } from '@/lib/color';
+import { useInViewOnce } from '@/components/useInViewOnce';
+import type { GenerateResult } from '@/features/llm/types';
+import { Segmented } from '@/components/ui/Segmented';
+import { SpecimenBoard } from '@/features/result/SpecimenBoard';
+import { ThemesPanel } from '@/features/result/ThemesPanel';
+import { AuditMatrix } from '@/features/result/AuditMatrix';
+import { RepairTrace } from '@/features/result/RepairTrace';
+import { ExportPanel } from '@/features/result/ExportPanel';
+import { PromptBar, type FormState } from './PromptBar';
+import { DEFAULT_INPUT, DEFAULT_RESULT, PRESETS, type Preset } from './defaults';
+
+type Status = 'idle' | 'loading' | 'error';
+
+function Section({
+  n,
+  title,
+  note,
+  aside,
+  children,
+}: {
+  n: string;
+  title: string;
+  note?: string;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const [ref, inView] = useInViewOnce<HTMLElement>();
+  return (
+    <section
+      ref={ref}
+      className="mx-auto max-w-6xl px-6"
+      style={{
+        opacity: inView ? 1 : 0,
+        transform: inView ? 'none' : 'translateY(20px)',
+        transition: 'opacity 0.6s cubic-bezier(0.22,1,0.36,1), transform 0.6s cubic-bezier(0.22,1,0.36,1)',
+      }}
+    >
+      <div className="mb-7 flex items-end justify-between gap-4 border-b border-black/8 pb-4">
+        <div className="flex items-center gap-3">
+          <span className="coord rounded-md border border-black/10 bg-white px-1.5 py-1 text-[10px] font-medium text-zinc-500">
+            {n}
+          </span>
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">{title}</h2>
+            {note && (
+              <div className="coord mt-0.5 text-[10px] uppercase tracking-[0.1em] text-zinc-400">{note}</div>
+            )}
+          </div>
+        </div>
+        {aside}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function App() {
+  const [fields, setFields] = useState<FormState>(DEFAULT_INPUT);
+  const [result, setResult] = useState<GenerateResult>(DEFAULT_RESULT);
+  const [status, setStatus] = useState<Status>('idle');
+  const [error, setError] = useState<string | null>(null);
+  const [hasGenerated, setHasGenerated] = useState(false);
+  const [theme, setTheme] = useState<Theme>('dark');
+  const [morphing, setMorphing] = useState(false);
+  const morphTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  function triggerMorph() {
+    setMorphing(true);
+    clearTimeout(morphTimer.current);
+    morphTimer.current = setTimeout(() => setMorphing(false), 750);
+  }
+
+  useEffect(() => () => clearTimeout(morphTimer.current), []);
+
+  async function generate(input: FormState = fields) {
+    setStatus('loading');
+    setError(null);
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? 'Generation failed.');
+      setResult(data as GenerateResult);
+      setHasGenerated(true);
+      setStatus('idle');
+      triggerMorph();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Generation failed.');
+      setStatus('idle');
+    }
+  }
+
+  function applyPreset(p: Preset) {
+    setFields(p.fields);
+    setResult(p.result);
+    setHasGenerated(true);
+    setError(null);
+    setStatus('idle');
+    triggerMorph();
+  }
+
+  const activePalette = result.themes[theme];
+  const glow = oklchToHex(activePalette.primary);
+  const harmony = result.harmony[theme];
+  const loading = status === 'loading';
+
+  return (
+    <div className="pb-32">
+      <AnimatePresence>
+        {loading && (
+          <motion.div
+            initial={{ scaleX: 0, opacity: 1 }}
+            animate={{ scaleX: 0.9 }}
+            exit={{ scaleX: 1, opacity: 0 }}
+            transition={{ duration: 1.2, ease: 'easeOut' }}
+            style={{ transformOrigin: 'left' }}
+            className="fixed inset-x-0 top-0 z-50 h-0.5 bg-zinc-900"
+          />
+        )}
+      </AnimatePresence>
+
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+        <div className="flex items-center gap-2.5">
+          <span className="relative flex h-4 w-7 items-center rounded-full bg-gradient-to-r from-zinc-950 via-zinc-500 to-zinc-100 ring-1 ring-inset ring-black/15">
+            <span className="absolute left-[62%] h-3 w-3 -translate-x-1/2 rounded-full bg-white shadow-sm ring-2 ring-zinc-900" />
+          </span>
+          <span className="text-[15px] font-semibold tracking-tight">Palette Check</span>
+        </div>
+        <span className="coord hidden text-[11px] uppercase tracking-[0.12em] text-zinc-400 sm:block">
+          LLM proposes · Math guarantees
+        </span>
+      </header>
+
+      <section className="relative overflow-hidden">
+        <div
+          className="dotgrid pointer-events-none absolute inset-x-0 top-0 h-[560px]"
+          style={{ maskImage: 'radial-gradient(80% 60% at 50% 0%, black, transparent)', WebkitMaskImage: 'radial-gradient(80% 60% at 50% 0%, black, transparent)' }}
+        />
+
+        <div className="mx-auto max-w-6xl px-6 pt-10 sm:pt-16">
+          <div className="mx-auto max-w-2xl text-center">
+            <div className="font-mono text-[12px] font-medium uppercase tracking-[0.14em] text-zinc-400">
+              Accessible design tokens
+            </div>
+            <h1 className="mt-4 text-4xl font-semibold leading-[1.05] tracking-tight text-zinc-950 sm:text-5xl lg:text-[3.5rem]">
+              Generate the palette.
+              <br />
+              <span className="text-zinc-400">Guarantee the contrast.</span>
+            </h1>
+            <p className="mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-zinc-500">
+              Describe a product and get accessible light &amp; dark tokens — proposed by a model,
+              verified against WCAG, and repaired where it missed.
+            </p>
+          </div>
+
+          <div className="relative mt-12">
+            <div
+              className="pointer-events-none absolute -inset-x-8 -top-8 bottom-8 -z-10 opacity-30 blur-3xl transition-colors duration-700"
+              style={{ background: `radial-gradient(55% 50% at 50% 35%, ${glow}, transparent 70%)` }}
+            />
+            <div className="mb-4 flex justify-center">
+              <Segmented
+                options={[
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' },
+                ]}
+                value={theme}
+                onChange={setTheme}
+              />
+            </div>
+            <div className="relative mx-auto max-w-4xl">
+              <SpecimenBoard palette={activePalette} morphing={morphing} />
+              <AnimatePresence>
+                {loading && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 flex items-start justify-center rounded-2xl bg-white/30 pt-6 backdrop-blur-[1px]"
+                  >
+                    <span className="rounded-full bg-zinc-950 px-3 py-1.5 text-[12px] font-medium text-white shadow-lg">
+                      Generating…
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          <div className="mx-auto mt-10 max-w-3xl">
+            <PromptBar
+              value={fields}
+              loading={loading}
+              onChange={(patch) => setFields((f) => ({ ...f, ...patch }))}
+              onSubmit={() => generate()}
+            />
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+              <span className="coord text-[11px] uppercase tracking-wide text-zinc-400">Presets</span>
+              {PRESETS.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => applyPreset(p)}
+                  disabled={loading}
+                  className="rounded-full border border-black/8 bg-white px-2.5 py-1 text-[12px] text-zinc-600 transition-colors hover:border-black/20 hover:text-zinc-900 disabled:opacity-40"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            {error && (
+              <div className="mx-auto mt-4 max-w-md rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-center text-[13px] text-rose-700">
+                {error}
+              </div>
+            )}
+          </div>
+
+          <div className="mx-auto mt-14 max-w-2xl text-center">
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <span className="text-lg font-semibold tracking-tight text-zinc-900">{result.name}</span>
+              <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-[12px] font-medium capitalize text-zinc-600">
+                {result.scheme}
+              </span>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium ${
+                  harmony.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                }`}
+              >
+                {harmony.ok ? 'In harmony' : `${harmony.deviations.length} off-scheme`}
+              </span>
+              <span className="coord rounded-full border border-black/8 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                {!hasGenerated ? 'Sample' : result.source === 'mock' ? 'Preset' : 'AI-generated'}
+              </span>
+            </div>
+            <p className="mx-auto mt-2 max-w-xl text-[14px] leading-relaxed text-zinc-500">
+              {result.rationale}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="mt-28 space-y-28">
+        <Section n="01" title="Light & dark tokens" note="18 semantic tokens · OKLCH coordinates">
+          <ThemesPanel light={result.themes.light} dark={result.themes.dark} />
+        </Section>
+
+        <Section
+          n="02"
+          title="Accessibility audit"
+          note="19 WCAG 2.1 contrast rules"
+          aside={
+            <Segmented
+              options={[
+                { value: 'light', label: 'Light' },
+                { value: 'dark', label: 'Dark' },
+              ]}
+              value={theme}
+              onChange={setTheme}
+              size="sm"
+            />
+          }
+        >
+          <AuditMatrix report={result.audit[theme]} palette={result.themes[theme]} />
+        </Section>
+
+        <Section
+          n="03"
+          title="Repair trace"
+          note="luminance-only correction"
+          aside={
+            <Segmented
+              options={[
+                { value: 'light', label: 'Light' },
+                { value: 'dark', label: 'Dark' },
+              ]}
+              value={theme}
+              onChange={setTheme}
+              size="sm"
+            />
+          }
+        >
+          <RepairTrace
+            trace={result.trace[theme]}
+            infeasible={result.infeasible[theme]}
+            palette={result.themes[theme]}
+          />
+        </Section>
+
+        <Section n="04" title="Export" note="CSS · JSON · Tailwind · DTCG">
+          <ExportPanel themes={result.themes} />
+        </Section>
+      </div>
+
+      <footer className="mx-auto mt-28 max-w-6xl px-6">
+        <div className="flex flex-col gap-3 border-t border-black/8 pt-8 sm:flex-row sm:items-center sm:justify-between">
+          <p className="max-w-md text-[13px] leading-relaxed text-zinc-500">
+            <span className="font-medium text-zinc-800">Accessibility ≠ aesthetics.</span> The engine
+            guarantees contrast — not beauty. Beauty stays the model&apos;s job.
+          </p>
+          <a
+            href="https://www.w3.org/TR/WCAG21/"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-[13px] font-medium text-zinc-500 transition-colors hover:text-zinc-900"
+          >
+            Built on WCAG 2.1
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      </footer>
+    </div>
+  );
+}

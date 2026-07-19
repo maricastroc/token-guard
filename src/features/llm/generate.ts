@@ -1,18 +1,9 @@
-/**
- * The generation pipeline: proposal → materialize → verify → repair → verify →
- * checkHarmony → assembled GenerateResult.
- *
- * The LLM proposes; the math guarantees. There is no regenerate loop — a failing
- * proposal is repaired, never re-rolled.
- */
-
 import { checkHarmony, repair, verify } from '@/lib/color';
 import type { Proposal } from './schema';
 import { materialize } from './materialize';
 import type { GenerateResult } from './types';
 import { TOKEN_DESCRIPTIONS } from './types';
 
-/** Run the deterministic pipeline over a (real or mock) proposal. */
 export function assembleResult(
   proposal: Proposal,
   source: 'llm' | 'mock',

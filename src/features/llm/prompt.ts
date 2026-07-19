@@ -1,13 +1,6 @@
-/**
- * Prompt construction for the creative step.
- *
- * The model is asked to make ONLY creative decisions — hue, chroma, personality,
- * and its lightness intent. It is deliberately told NOT to reason about contrast
- * or accessibility: that is the engine's guarantee, and telling the model to
- * chase WCAG here would blur the "LLM proposes, math guarantees" boundary.
- */
+import { CORE_TOKENS, type GenerateInput } from './schema';
 
-import type { GenerateInput } from './schema';
+const TOKEN_KEYS = CORE_TOKENS.join(', ');
 
 export const SYSTEM_PROMPT = `You are a senior brand and product color designer who works in OKLCH.
 
@@ -29,7 +22,16 @@ Rules:
 - Give surfaces a faint tint of the brand hue rather than pure gray when it suits the mood.
 - Be characterful. Avoid generic "AI demo" palettes — no default purple-on-white. Commit to a point of view.
 
-Return every core token for BOTH light and dark themes, plus a short palette name and a one–two sentence rationale.`;
+OUTPUT — respond with ONLY one JSON object, no markdown fences and no commentary:
+{
+  "name": "<short evocative palette name>",
+  "rationale": "<one or two sentences on why these colors fit the product>",
+  "scheme": "<the requested harmony scheme>",
+  "light": { "bg": { "l": 0.98, "c": 0.01, "h": 265 }, "...": {} },
+  "dark":  { "bg": { "l": 0.16, "c": 0.01, "h": 265 }, "...": {} }
+}
+Both "light" and "dark" MUST contain EXACTLY these ${CORE_TOKENS.length} keys, each an object with numeric "l" (0–1), "c" (0–0.37) and "h" (0–360):
+${TOKEN_KEYS}.`;
 
 export function buildUserPrompt(input: GenerateInput): string {
   const vibe = input.vibe?.trim();
@@ -38,7 +40,7 @@ export function buildUserPrompt(input: GenerateInput): string {
     vibe ? `Vibe: ${vibe}` : null,
     `Harmony scheme: ${input.scheme}`,
     '',
-    'Design the light and dark core palettes. Make it feel like a real product, not a swatch demo.',
+    'Design the light and dark core palettes as JSON. Make it feel like a real product, not a swatch demo.',
   ]
     .filter(Boolean)
     .join('\n');

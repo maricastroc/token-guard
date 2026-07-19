@@ -5,7 +5,6 @@ import { makePalette, lightPalette } from './helpers';
 
 describe('checkRule', () => {
   it('reports pass/fail against the required level', () => {
-    // Black text on white surface → 21:1, passes everything.
     const p = makePalette({
       text: { l: 0, c: 0, h: 0 },
       bg: { l: 1, c: 0, h: 0 },
@@ -21,7 +20,6 @@ describe('checkRule', () => {
   });
 
   it('detects a failing pair', () => {
-    // Mid-gray text on white → well under 4.5.
     const p = makePalette({
       text: { l: 0.75, c: 0, h: 0 },
       bg: { l: 1, c: 0, h: 0 },
@@ -33,7 +31,7 @@ describe('checkRule', () => {
 
 describe('verify', () => {
   it('an all-neutral gray palette fails many rules', () => {
-    const gray = makePalette({}); // every token l:0.5, c:0
+    const gray = makePalette({});
     const report = verify(gray, 'light');
     expect(report.passes).toBe(false);
     expect(report.results.some((r) => !r.passRequired)).toBe(true);
@@ -41,7 +39,6 @@ describe('verify', () => {
   });
 
   it('the hand-tuned light theme still has weak spots pre-repair', () => {
-    // The fixture deliberately includes a too-light border and a yellow warning.
     const report = verify(lightPalette(), 'light');
     const failing = report.results.filter((r) => !r.passRequired).map((r) => r.rule.fg);
     expect(failing).toContain('border');

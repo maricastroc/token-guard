@@ -1,49 +1,81 @@
-/**
- * Server-only: the creative step.
- *
- * Calls Claude for a structured palette proposal, then hands it to the
- * deterministic pipeline. Falls back to a deterministic offline mock when no
- * ANTHROPIC_API_KEY is present, so the app runs end-to-end without a key.
- *
- * Do not import this module from client components — it reaches for the
- * Anthropic SDK and the API key.
- */
-
-import Anthropic from '@anthropic-ai/sdk';
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import Groq from 'groq-sdk';
 import { assembleResult } from './generate';
 import { mockProposal } from './mock';
 import { buildUserPrompt, SYSTEM_PROMPT } from './prompt';
 import { ProposalSchema, type GenerateInput, type Proposal } from './schema';
 import type { GenerateResult } from './types';
 
-const MODEL = 'claude-opus-4-8';
+const MODEL = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile';
+
+function statusOf(err: unknown): number | undefined {
+  if (typeof err === 'object' && err !== null && 'status' in err) {
+    const s = (err as { status?: unknown }).status;
+    return typeof s === 'number' ? s : undefined;
+  }
+  return undefined;
+}
+
+function friendlyError(err: unknown): Error {
+  const status = statusOf(err);
+  if (status === 401 || status === 403) {
+    return new Error(
+      'Your GROQ_API_KEY is invalid or lacks access. Fix it in .env.local, or remove it to use the offline sample palette.',
+    );
+  }
+  if (status === 404) {
+    return new Error(`Groq model "${MODEL}" was not found. Set GROQ_MODEL to a valid model id.`);
+  }
+  if (status === 429 || status === 413) {
+    return new Error('Rate limit reached on your Groq plan — wait a moment and try again, or pick a preset below.');
+  }
+  if (status !== undefined && status >= 500) {
+    return new Error('Groq is temporarily unavailable. Please try again.');
+  }
+  return err instanceof Error ? err : new Error('Generation failed.');
+}
 
 async function getProposal(
   input: GenerateInput,
 ): Promise<{ proposal: Proposal; source: 'llm' | 'mock' }> {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.GROQ_API_KEY) {
     return { proposal: mockProposal(input), source: 'mock' };
   }
 
-  const client = new Anthropic();
-  const response = await client.messages.parse({
-    model: MODEL,
-    max_tokens: 16000,
-    thinking: { type: 'adaptive' },
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: buildUserPrompt(input) }],
-    output_config: { format: zodOutputFormat(ProposalSchema) },
-  });
-
-  const parsed = response.parsed_output;
-  if (!parsed) {
-    throw new Error('The model did not return a valid palette proposal.');
+  const groq = new Groq();
+  let content: string | null;
+  try {
+    const completion = await groq.chat.completions.create({
+      model: MODEL,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: buildUserPrompt(input) },
+      ],
+      response_format: { type: 'json_object' },
+      max_tokens: 4096,
+    });
+    content = completion.choices[0]?.message?.content ?? null;
+  } catch (err) {
+    throw friendlyError(err);
   }
-  return { proposal: parsed, source: 'llm' };
+
+  if (!content) {
+    throw new Error('Groq returned an empty response. Try again.');
+  }
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(content);
+  } catch {
+    throw new Error('Groq did not return valid JSON. Try again, or set a different GROQ_MODEL.');
+  }
+
+  const parsed = ProposalSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error('Groq returned an unexpected palette shape. Try again, or set a different GROQ_MODEL.');
+  }
+  return { proposal: parsed.data, source: 'llm' };
 }
 
-/** End-to-end: creative proposal → guaranteed-accessible tokens. */
 export async function generatePalette(
   input: GenerateInput,
 ): Promise<GenerateResult> {

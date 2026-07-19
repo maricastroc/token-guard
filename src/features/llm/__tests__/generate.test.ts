@@ -23,7 +23,6 @@ describe('assembleResult (the pipeline)', () => {
 
   it('shows the proposal failing before repair (so the trace has a story)', () => {
     const r = run(baseInput);
-    // The mock intentionally includes inaccessible colors.
     expect(r.auditBefore.light.passes).toBe(false);
   });
 
@@ -37,7 +36,6 @@ describe('assembleResult (the pipeline)', () => {
     const r = run(baseInput);
     const changed = r.trace.light.filter((s) => Math.abs(s.deltaL) > 1e-6);
     expect(changed.length).toBeGreaterThan(0);
-    // warning (a too-light yellow) is a classic repair.
     const warning = r.trace.light.find((s) => s.token === 'warning')!;
     expect(warning.passedBefore).toBe(false);
     expect(warning.passedAfter).toBe(true);
@@ -46,7 +44,6 @@ describe('assembleResult (the pipeline)', () => {
   it('reports harmony (repair never breaks it)', () => {
     const r = run(baseInput);
     expect(r.harmony.light.scheme).toBe('analogous');
-    // Brand tokens share a hue in the mock, so any scheme is satisfied.
     expect(r.harmony.light.ok).toBe(true);
   });
 

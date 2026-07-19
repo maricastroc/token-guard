@@ -8,7 +8,6 @@ export default defineConfig({
     },
   },
   test: {
-    // The engine is pure and framework-free — a Node environment is all it needs.
     environment: 'node',
     include: ['src/**/*.{test,spec}.ts'],
     coverage: {

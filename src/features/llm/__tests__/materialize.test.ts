@@ -31,7 +31,6 @@ describe('materialize', () => {
   it('carries the core colors through with hue preserved', () => {
     const themes = materialize(proposal);
     for (const t of CORE_TOKENS) {
-      // Hue is a pure creative decision — never altered by materialization.
       expect(themes.light[t].h).toBeCloseTo(proposal.light[t].h, 6);
     }
   });
@@ -50,7 +49,6 @@ describe('materialize', () => {
     const hi = Math.max(light.surface.l, light.text.l);
     expect(light.border.l).toBeGreaterThanOrEqual(lo);
     expect(light.border.l).toBeLessThanOrEqual(hi);
-    // borderStrong steps further from the surface than border.
     expect(Math.abs(light.borderStrong.l - light.surface.l)).toBeGreaterThan(
       Math.abs(light.border.l - light.surface.l),
     );
@@ -58,7 +56,6 @@ describe('materialize', () => {
 
   it('clamps out-of-range proposals instead of throwing', () => {
     const wild = mockProposal({ productType: 'x', vibe: '', scheme: 'triadic' });
-    // Corrupt one color with impossible values.
     wild.light.primary = { l: 5, c: 2, h: 720 };
     const themes = materialize(wild);
     expect(themes.light.primary.l).toBeLessThanOrEqual(1);

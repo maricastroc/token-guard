@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { generatePalette } from '@/features/llm/client';
 import { GenerateInputSchema } from '@/features/llm/schema';
 
-// The Anthropic SDK needs the Node.js runtime, and each request is unique.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 

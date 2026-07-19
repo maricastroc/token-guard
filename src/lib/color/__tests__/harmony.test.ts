@@ -8,7 +8,6 @@ import { makePalette, lightPalette, paletteArb } from './helpers';
 
 const CH = (h: number): OKLCH => ({ l: 0.5, c: 0.12, h });
 
-/** A palette whose judged (chromatic, non-status) tokens sit at the given hues. */
 function harmonyPalette(base: number, hues: Partial<Record<TokenName, number>>): Palette {
   const overrides: Partial<Record<TokenName, OKLCH>> = { primary: CH(base) };
   for (const [t, h] of Object.entries(hues)) overrides[t as TokenName] = CH(h!);
@@ -56,7 +55,7 @@ describe('checkHarmony', () => {
   it('ignores near-neutral tokens (no meaningful hue)', () => {
     const p = makePalette({
       primary: CH(200),
-      text: { l: 0.2, c: 0.005, h: 40 }, // neutral → exempt even though hue is far
+      text: { l: 0.2, c: 0.005, h: 40 },
     });
     expect(checkHarmony(p, 'monochromatic').ok).toBe(true);
   });
@@ -93,18 +92,14 @@ describe('checkHarmony — properties', () => {
         (scheme, base) => {
           const anchors = allowedHues(scheme, base);
           const tol = harmonyTolerance(scheme);
-          // Halfway between the two nearest anchors is the farthest possible point.
-          // For single-anchor schemes, offset by (tol + margin).
           let badHue: number;
           if (anchors.length === 1) {
             badHue = base + tol + 10;
           } else {
-            // midpoint of the largest gap between consecutive anchors
             const sorted = [...anchors].sort((a, b) => a - b);
             badHue = (sorted[0] + sorted[1]) / 2;
           }
           const report = checkHarmony(harmonyPalette(base, { focusRing: badHue }), scheme, base);
-          // Only assert failure when the constructed hue truly exceeds tolerance.
           const minDelta = Math.min(...anchors.map((a) => hueDistance(badHue, a)));
           if (minDelta > tol) expect(report.ok).toBe(false);
         },
