@@ -40,7 +40,7 @@ export function PromptBar({
       }}
       className="flex flex-col gap-2 rounded-2xl border border-black/8 bg-white p-2 shadow-[0_20px_50px_-24px_rgba(0,0,0,0.28)] sm:flex-row sm:items-center sm:gap-0 sm:p-1.5"
     >
-      <div className="min-w-0 flex-[2] px-3 py-1.5">
+      <div className="min-w-0 flex-2 px-3 py-1.5">
         <FieldLabel>Product</FieldLabel>
         <input
           value={value.productType}

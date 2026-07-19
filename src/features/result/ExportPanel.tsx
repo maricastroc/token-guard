@@ -1,10 +1,18 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { Download } from 'lucide-react';
 import type { ThemeSet } from '@/lib/color';
 import { exportAs, type ExportFormat } from '@/lib/color';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { Segmented } from '@/components/ui/Segmented';
+
+const MIME: Record<ExportFormat, string> = {
+  css: 'text/css',
+  json: 'application/json',
+  tailwind: 'text/javascript',
+  'design-tokens': 'application/json',
+};
 
 const FORMATS: { value: ExportFormat; label: string; file: string }[] = [
   { value: 'css', label: 'CSS', file: 'tokens.css' },
@@ -19,6 +27,18 @@ export function ExportPanel({ themes }: { themes: ThemeSet }) {
   const meta = FORMATS.find((f) => f.value === format)!;
   const lines = useMemo(() => code.split('\n'), [code]);
 
+  function download() {
+    const blob = new Blob([code], { type: `${MIME[format]};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = meta.file;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -32,6 +52,14 @@ export function ExportPanel({ themes }: { themes: ThemeSet }) {
           <span className="coord text-[11px] text-zinc-400">
             {lines.length} lines
           </span>
+          <button
+            type="button"
+            onClick={download}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-black/8 bg-white px-2.5 py-1.5 text-[12px] font-medium text-zinc-600 shadow-sm transition-colors hover:border-black/15 hover:text-zinc-900"
+          >
+            <Download className="h-3.5 w-3.5" strokeWidth={2} />
+            Download
+          </button>
           <CopyButton text={code} label="Copy" />
         </div>
       </div>

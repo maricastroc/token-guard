@@ -102,8 +102,13 @@ function Invariant({
   );
 }
 
-function SwatchTile({ hex, l, kind }: { hex: string; l: number; kind: 'ai' | 'repair' }) {
-  const fail = kind === 'ai';
+function SwatchTile({ hex, l, state }: { hex: string; l: number; state: 'ai' | 'pass' | 'warn' }) {
+  const badge =
+    state === 'ai' ? 'bg-rose-500' : state === 'pass' ? 'bg-emerald-500' : 'bg-amber-500';
+  const label =
+    state === 'ai' ? 'AI proposal' : state === 'pass' ? 'Repaired' : 'Best effort';
+  const labelColor =
+    state === 'ai' ? 'text-rose-500' : state === 'pass' ? 'text-emerald-600' : 'text-amber-600';
   return (
     <div className="flex items-center gap-2.5">
       <span
@@ -111,20 +116,14 @@ function SwatchTile({ hex, l, kind }: { hex: string; l: number; kind: 'ai' | 're
         style={{ backgroundColor: hex }}
       >
         <span
-          className={`absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white ring-2 ring-white ${
-            fail ? 'bg-rose-500' : 'bg-emerald-500'
-          }`}
+          className={`absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white ring-2 ring-white ${badge}`}
         >
-          {fail ? '✕' : '✓'}
+          {state === 'pass' ? '✓' : '✕'}
         </span>
       </span>
       <div>
-        <div
-          className={`coord text-[9px] font-semibold uppercase tracking-[0.1em] ${
-            fail ? 'text-rose-500' : 'text-emerald-600'
-          }`}
-        >
-          {fail ? 'AI proposal' : 'Repaired'}
+        <div className={`coord text-[9px] font-semibold uppercase tracking-[0.1em] ${labelColor}`}>
+          {label}
         </div>
         <div className="coord text-[13px] font-semibold text-zinc-900 tnum">L {l.toFixed(3)}</div>
       </div>
@@ -139,6 +138,7 @@ function TraceCard({ step, palette }: { step: RepairStep; palette: Palette }) {
   const proposedHex = oklchToHex(proposed);
   const repairedHex = oklchToHex(repaired);
   const band = feasibleBand(step);
+  const passed = step.passedAfter;
   const [ref, inView] = useInViewOnce<HTMLDivElement>();
 
   return (
@@ -153,21 +153,21 @@ function TraceCard({ step, palette }: { step: RepairStep; palette: Palette }) {
       </div>
 
       <div className="mb-5 flex items-center justify-between gap-2">
-        <SwatchTile hex={proposedHex} l={step.proposedL} kind="ai" />
+        <SwatchTile hex={proposedHex} l={step.proposedL} state="ai" />
         <div className="flex flex-col items-center gap-1 px-1">
-          <span
-            className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600"
-          >
+          <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600">
             {step.proposedRatio.toFixed(2)}
           </span>
           <ArrowRight className="h-4 w-4 text-zinc-300" />
           <span
-            className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600"
+            className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+              passed ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+            }`}
           >
             {step.repairedRatio.toFixed(2)}
           </span>
         </div>
-        <SwatchTile hex={repairedHex} l={step.repairedL} kind="repair" />
+        <SwatchTile hex={repairedHex} l={step.repairedL} state={passed ? 'pass' : 'warn'} />
       </div>
 
       <LuminanceAxis
@@ -177,7 +177,14 @@ function TraceCard({ step, palette }: { step: RepairStep; palette: Palette }) {
         inView={inView}
         nodes={[
           { l: step.proposedL, color: proposedHex, ring: 'fail', z: 1 },
-          { l: step.repairedL, color: repairedHex, ring: 'pass', fromL: step.proposedL, glow: true, z: 2 },
+          {
+            l: step.repairedL,
+            color: repairedHex,
+            ring: passed ? 'pass' : 'warn',
+            fromL: step.proposedL,
+            glow: passed,
+            z: 2,
+          },
         ]}
       />
 

@@ -141,6 +141,27 @@ export const PRESETS: Preset[] = [
   ),
 ];
 
+const CINNABAR: Proposal = (() => {
+  const primary = { l: 0.52, c: 0.12, h: 25 };
+  const onPrimary = { l: 0.5, c: 0.14, h: 25 };
+  return {
+    name: 'Cinnabar',
+    rationale:
+      'A hot, confident cinnabar red for a bold commerce brand — and a same-hue label color the model was set on. Watch where the math draws the line.',
+    scheme: 'analogous',
+    light: { ...lightCore(25, 0.12), primary, onPrimary },
+    dark: { ...darkCore(25, 0.12), primary, onPrimary },
+  };
+})();
+
+PRESETS.push(
+  preset('Bold commerce', CINNABAR, {
+    productType: 'bold commerce brand',
+    vibe: 'hot, high-energy',
+    scheme: 'analogous',
+  }),
+);
+
 export const DEFAULT_INPUT: FormState = {
   productType: '',
   vibe: '',

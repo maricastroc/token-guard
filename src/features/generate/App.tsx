@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, Check, Link2 } from 'lucide-react';
 import type { Theme } from '@/lib/color';
 import { oklchToHex } from '@/lib/color';
 import { useInViewOnce } from '@/components/useInViewOnce';
@@ -15,6 +15,7 @@ import { RepairTrace } from '@/features/result/RepairTrace';
 import { ExportPanel } from '@/features/result/ExportPanel';
 import { PromptBar, type FormState } from './PromptBar';
 import { DEFAULT_INPUT, DEFAULT_RESULT, PRESETS, type Preset } from './defaults';
+import { encodePalette, decodePalette } from './share';
 
 type Status = 'idle' | 'loading' | 'error';
 
@@ -50,7 +51,7 @@ function Section({
           <div>
             <h2 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">{title}</h2>
             {note && (
-              <div className="coord mt-0.5 text-[10px] uppercase tracking-[0.1em] text-zinc-400">{note}</div>
+              <div className="coord mt-0.5 text-[10px] uppercase tracking-widest text-zinc-400">{note}</div>
             )}
           </div>
         </div>
@@ -69,6 +70,7 @@ export function App() {
   const [hasGenerated, setHasGenerated] = useState(false);
   const [theme, setTheme] = useState<Theme>('dark');
   const [morphing, setMorphing] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const morphTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   function triggerMorph() {
@@ -78,6 +80,27 @@ export function App() {
   }
 
   useEffect(() => () => clearTimeout(morphTimer.current), []);
+
+  useEffect(() => {
+    const encoded = new URLSearchParams(window.location.search).get('p');
+    if (!encoded) return;
+    const decoded = decodePalette(encoded);
+    if (!decoded) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setResult(decoded);
+    setHasGenerated(true);
+  }, []);
+
+  function share() {
+    const url = `${window.location.origin}${window.location.pathname}?p=${encodePalette(result)}`;
+    navigator.clipboard.writeText(url).then(
+      () => {
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 1800);
+      },
+      () => {},
+    );
+  }
 
   async function generate(input: FormState = fields) {
     setStatus('loading');
@@ -131,7 +154,7 @@ export function App() {
 
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2.5">
-          <span className="relative flex h-4 w-7 items-center rounded-full bg-gradient-to-r from-zinc-950 via-zinc-500 to-zinc-100 ring-1 ring-inset ring-black/15">
+          <span className="relative flex h-4 w-7 items-center rounded-full bg-linear-to-r from-zinc-950 via-zinc-500 to-zinc-100 ring-1 ring-inset ring-black/15">
             <span className="absolute left-[62%] h-3 w-3 -translate-x-1/2 rounded-full bg-white shadow-sm ring-2 ring-zinc-900" />
           </span>
           <span className="text-[15px] font-semibold tracking-tight">Palette Check</span>
@@ -143,7 +166,7 @@ export function App() {
 
       <section className="relative overflow-hidden">
         <div
-          className="dotgrid pointer-events-none absolute inset-x-0 top-0 h-[560px]"
+          className="dotgrid pointer-events-none absolute inset-x-0 top-0 h-140"
           style={{ maskImage: 'radial-gradient(80% 60% at 50% 0%, black, transparent)', WebkitMaskImage: 'radial-gradient(80% 60% at 50% 0%, black, transparent)' }}
         />
 
@@ -245,6 +268,25 @@ export function App() {
             <p className="mx-auto mt-2 max-w-xl text-[14px] leading-relaxed text-zinc-500">
               {result.rationale}
             </p>
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={share}
+                className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-600 shadow-sm transition-colors hover:border-black/20 hover:text-zinc-900"
+              >
+                {shareCopied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-emerald-600" strokeWidth={2.5} />
+                    Link copied
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
+                    Share this palette
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </section>

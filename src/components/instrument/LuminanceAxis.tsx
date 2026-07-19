@@ -5,7 +5,7 @@ import { oklchToHex } from '@/lib/color';
 export interface AxisNode {
   l: number;
   color: string;
-  ring?: 'fail' | 'pass' | 'neutral';
+  ring?: 'fail' | 'pass' | 'warn' | 'neutral';
   fromL?: number;
   glow?: boolean;
   z?: number;
@@ -14,6 +14,7 @@ export interface AxisNode {
 const RING: Record<NonNullable<AxisNode['ring']>, string> = {
   fail: '#e11d48',
   pass: '#059669',
+  warn: '#d97706',
   neutral: '#3f3f46',
 };
 
