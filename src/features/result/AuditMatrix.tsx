@@ -1,16 +1,23 @@
-import { BadgeCheck, Check, TriangleAlert } from 'lucide-react';
+'use client';
+
+import { useMemo, useState } from 'react';
+import { BadgeCheck, Check, TriangleAlert, X } from 'lucide-react';
 import type { ConstraintResult, Palette, TokenName, VerifyReport } from '@/lib/color';
+import { apcaContrast, apcaThreshold } from '@/lib/color';
+import { Segmented } from '@/components/ui/Segmented';
 import { hex } from './tokens';
 
-const SCALE_MAX = 21;
-const posFor = (v: number) => ((Math.max(1, Math.min(SCALE_MAX, v)) - 1) / (SCALE_MAX - 1)) * 100;
+type Method = 'wcag' | 'apca';
 
 const GROUPS: { label: string; hint: string; fg: TokenName[] }[] = [
   { label: 'Text on surfaces', hint: 'readability', fg: ['text', 'textSecondary', 'textDisabled'] },
   { label: 'Text on brand', hint: 'on-color legibility', fg: ['onPrimary'] },
   { label: 'Signal on surface', hint: 'status colors', fg: ['danger', 'warning', 'success', 'info'] },
-  { label: 'UI & focus', hint: 'non-text 3:1', fg: ['border', 'borderStrong', 'focusRing'] },
+  { label: 'UI & focus', hint: 'non-text', fg: ['border', 'borderStrong', 'focusRing'] },
 ];
+
+const PASS = '#059669';
+const FAIL = '#d97706';
 
 function Chip({ color }: { color: string }) {
   return (
@@ -21,31 +28,34 @@ function Chip({ color }: { color: string }) {
   );
 }
 
-function Gauge({ result }: { result: ConstraintResult }) {
-  const pass = result.passRequired;
-  const ratioPos = posFor(result.ratio);
-  const minPos = posFor(result.rule.min);
-  const fill = pass ? '#059669' : '#e11d48';
+function Gauge({
+  value,
+  threshold,
+  min,
+  max,
+  pass,
+}: {
+  value: number;
+  threshold: number;
+  min: number;
+  max: number;
+  pass: boolean;
+}) {
+  const pos = (v: number) => ((Math.max(min, Math.min(max, v)) - min) / (max - min)) * 100;
+  const vPos = pos(value);
+  const tPos = pos(threshold);
+  const fill = pass ? PASS : FAIL;
 
   return (
     <div className="relative h-5 flex-1">
-      <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-zinc-100">
-        <div
-          className="h-full rounded-full opacity-25"
-          style={{ width: `${minPos.toFixed(2)}%`, backgroundColor: fill }}
-        />
-      </div>
+      <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-zinc-100" />
       <div
         className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full"
-        style={{
-          left: `${minPos.toFixed(2)}%`,
-          width: `${Math.max(0, ratioPos - minPos).toFixed(2)}%`,
-          backgroundColor: fill,
-        }}
+        style={{ left: 0, width: `${vPos.toFixed(2)}%`, backgroundColor: fill }}
       />
       <span
         className="absolute top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-zinc-900/70"
-        style={{ left: `${minPos.toFixed(2)}%` }}
+        style={{ left: `${tPos.toFixed(2)}%` }}
       />
     </div>
   );
@@ -64,9 +74,20 @@ function Level({ label, ok }: { label: string; ok: boolean }) {
   );
 }
 
-function Row({ result, palette }: { result: ConstraintResult; palette: Palette }) {
+function Row({
+  result,
+  palette,
+  method,
+}: {
+  result: ConstraintResult;
+  palette: Palette;
+  method: Method;
+}) {
   const { rule } = result;
-  const margin = result.ratio - rule.min;
+  const lc = apcaContrast(palette[rule.fg], palette[rule.bg]);
+  const apcaThr = apcaThreshold(rule.kind);
+  const apcaPass = Math.abs(lc) >= apcaThr;
+  const wcag = method === 'wcag';
 
   return (
     <div className="flex items-center gap-3 py-2 pl-1 pr-2 transition-colors hover:bg-white">
@@ -78,35 +99,79 @@ function Row({ result, palette }: { result: ConstraintResult; palette: Palette }
         <span className="coord truncate text-[11px] text-zinc-400">{rule.bg}</span>
       </div>
 
-      <Gauge result={result} />
+      {wcag ? (
+        <Gauge value={result.ratio} threshold={rule.min} min={1} max={21} pass={result.passRequired} />
+      ) : (
+        <Gauge value={Math.abs(lc)} threshold={apcaThr} min={0} max={108} pass={apcaPass} />
+      )}
 
-      <div className="flex w-12 shrink-0 items-baseline justify-end gap-0.5">
+      <div className="flex w-16 shrink-0 items-baseline justify-end gap-1">
+        <span className="coord text-[9px] uppercase text-zinc-400">{wcag ? '' : 'Lc'}</span>
         <span className="coord text-[13px] font-semibold text-zinc-900 tnum">
-          {result.ratio.toFixed(2)}
+          {wcag ? result.ratio.toFixed(2) : Math.round(lc)}
         </span>
       </div>
-      <div className="hidden w-16 shrink-0 text-right sm:block">
-        <span className="coord text-[10px] text-emerald-600 tnum">
-          +{margin.toFixed(2)}
-        </span>
-        <span className="coord ml-1 text-[10px] text-zinc-300">≥{rule.min.toFixed(1)}</span>
+
+      <div className="hidden w-14 shrink-0 text-right sm:block">
+        {wcag ? (
+          <>
+            <span className="coord text-[10px] text-emerald-600 tnum">
+              +{(result.ratio - rule.min).toFixed(2)}
+            </span>
+            <span className="coord ml-1 text-[10px] text-zinc-300">≥{rule.min.toFixed(1)}</span>
+          </>
+        ) : (
+          <span className="coord text-[10px] text-zinc-300">≥{apcaThr}</span>
+        )}
       </div>
+
       <div className="flex w-16 shrink-0 justify-end gap-1">
-        <Level label="AA" ok={result.passAA} />
-        <Level label="AAA" ok={result.passAAA} />
+        {wcag ? (
+          <>
+            <Level label="AA" ok={result.passAA} />
+            <Level label="AAA" ok={result.passAAA} />
+          </>
+        ) : (
+          <span
+            className={`coord inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+              apcaPass ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+            }`}
+          >
+            {apcaPass ? (
+              <Check className="h-2.5 w-2.5" strokeWidth={3} />
+            ) : (
+              <X className="h-2.5 w-2.5" strokeWidth={3} />
+            )}
+            Lc
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
 export function AuditMatrix({ report, palette }: { report: VerifyReport; palette: Palette }) {
+  const [method, setMethod] = useState<Method>('wcag');
   const total = report.results.length;
-  const aa = report.results.filter((r) => r.passRequired).length;
-  const aaa = report.results.filter((r) => r.passAAA).length;
-  const tightest = report.results.reduce(
-    (min, r) => Math.min(min, r.ratio - r.rule.min),
-    Infinity,
+
+  const apca = useMemo(
+    () =>
+      report.results.map((r) => {
+        const lc = apcaContrast(palette[r.rule.fg], palette[r.rule.bg]);
+        return { pass: Math.abs(lc) >= apcaThreshold(r.rule.kind), abs: Math.abs(lc) };
+      }),
+    [report, palette],
   );
+
+  const wcagPass = report.results.filter((r) => r.passRequired).length;
+  const aaa = report.results.filter((r) => r.passAAA).length;
+  const tightest = report.results.reduce((m, r) => Math.min(m, r.ratio - r.rule.min), Infinity);
+  const apcaPass = apca.filter((x) => x.pass).length;
+  const weakestLc = apca.reduce((m, x) => Math.min(m, x.abs), Infinity);
+
+  const wcag = method === 'wcag';
+  const passCount = wcag ? wcagPass : apcaPass;
+  const allPass = passCount === total;
 
   return (
     <div className="space-y-4">
@@ -115,10 +180,10 @@ export function AuditMatrix({ report, palette }: { report: VerifyReport; palette
         <div className="flex items-center gap-3">
           <span
             className={`flex h-11 w-11 items-center justify-center rounded-xl ${
-              report.passes ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+              allPass ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
             }`}
           >
-            {report.passes ? (
+            {allPass ? (
               <BadgeCheck className="h-6 w-6" strokeWidth={2} />
             ) : (
               <TriangleAlert className="h-6 w-6" strokeWidth={2} />
@@ -126,26 +191,66 @@ export function AuditMatrix({ report, palette }: { report: VerifyReport; palette
           </span>
           <div>
             <div className="text-[15px] font-semibold text-zinc-900">
-              {report.passes ? 'Guaranteed accessible' : `${total - aa} rules unresolved`}
+              {wcag
+                ? allPass
+                  ? 'Guaranteed accessible'
+                  : `${total - wcagPass} rules unresolved`
+                : allPass
+                  ? 'Meets APCA targets'
+                  : `${total - apcaPass} below APCA target`}
             </div>
             <div className="coord text-[11px] uppercase tracking-[0.1em] text-zinc-400">
-              {total} contrast rules · WCAG 2.1 AA
+              {total} contrast rules · {wcag ? 'WCAG 2.1 AA' : 'APCA · WCAG 3 draft'}
             </div>
           </div>
         </div>
 
         <div className="flex items-stretch gap-6">
-          <Stat value={`${aa}/${total}`} label="meet required" />
+          <Stat value={`${passCount}/${total}`} label={wcag ? 'meet required' : 'meet target'} />
           <span className="w-px bg-black/8" />
-          <Stat value={`${aaa}/${total}`} label="also AAA" muted />
-          <span className="w-px bg-black/8" />
-          <Stat
-            value={`+${Number.isFinite(tightest) ? tightest.toFixed(2) : '—'}`}
-            label="tightest margin"
-            muted
+          {wcag ? (
+            <>
+              <Stat value={`${aaa}/${total}`} label="also AAA" muted />
+              <span className="w-px bg-black/8" />
+              <Stat
+                value={`+${Number.isFinite(tightest) ? tightest.toFixed(2) : '—'}`}
+                label="tightest margin"
+                muted
+              />
+            </>
+          ) : (
+            <Stat
+              value={`${Number.isFinite(weakestLc) ? Math.round(weakestLc) : '—'}`}
+              label="weakest Lc"
+              muted
+            />
+          )}
+        </div>
+
+        <div className="ml-auto">
+          <Segmented
+            options={[
+              { value: 'wcag', label: 'WCAG 2.1' },
+              { value: 'apca', label: 'APCA' },
+            ]}
+            value={method}
+            onChange={setMethod}
+            size="sm"
           />
         </div>
       </div>
+
+      {!wcag && (
+        <p className="max-w-3xl px-1 text-[12px] leading-relaxed text-zinc-500">
+          <span className="coord mr-1.5 inline-block rounded bg-zinc-900 px-1.5 py-0.5 align-[1px] text-[9px] font-semibold uppercase text-white">
+            2nd lens
+          </span>
+          APCA is perceptual and polarity-aware. The engine still{' '}
+          <span className="font-medium text-zinc-700">guarantees WCAG 2.1</span> — it repairs to
+          ratios, not to Lc — so the two methods won&apos;t always agree. Targets: Lc 75 body · 60
+          large · 45 non-text.
+        </p>
+      )}
 
       {/* grouped inspection */}
       <div className="overflow-hidden rounded-2xl border border-black/8 bg-white shadow-sm">
@@ -163,7 +268,7 @@ export function AuditMatrix({ report, palette }: { report: VerifyReport; palette
               </div>
               <div className="divide-y divide-black/5 px-3 pb-1">
                 {rows.map((r, i) => (
-                  <Row key={i} result={r} palette={palette} />
+                  <Row key={i} result={r} palette={palette} method={method} />
                 ))}
               </div>
             </div>

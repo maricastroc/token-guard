@@ -20,6 +20,7 @@ export {
 } from './contrast';
 
 export { thresholdFor, meetsAA, meetsAAA, meetsLevel } from './wcag';
+export { apcaContrast, apcaThreshold, meetsApca } from './apca';
 
 export {
   RULES,
