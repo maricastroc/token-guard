@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowUpRight, Check, Link2 } from 'lucide-react';
+import { ArrowUpRight, Check, Eye, Link2 } from 'lucide-react';
 import type { Theme } from '@/lib/color';
 import { oklchToHex } from '@/lib/color';
 import { useInViewOnce } from '@/components/useInViewOnce';
@@ -16,8 +16,37 @@ import { ExportPanel } from '@/features/result/ExportPanel';
 import { PromptBar, type FormState } from './PromptBar';
 import { DEFAULT_INPUT, DEFAULT_RESULT, PRESETS, type Preset } from './defaults';
 import { encodePalette, decodePalette } from './share';
+import {
+  ColorVisionFilters,
+  visionFilter,
+  type VisionMode,
+} from '@/components/instrument/ColorVisionFilters';
 
 type Status = 'idle' | 'loading' | 'error';
+
+const VISION_MODES: { value: VisionMode; label: string; caption: string }[] = [
+  { value: 'normal', label: 'Normal', caption: '' },
+  {
+    value: 'protanopia',
+    label: 'Protanopia',
+    caption: 'Protanopia — red-cone blindness. Reds darken and can slide toward green.',
+  },
+  {
+    value: 'deuteranopia',
+    label: 'Deuteranopia',
+    caption: 'Deuteranopia — green-cone blindness, the most common type (~5% of men).',
+  },
+  {
+    value: 'tritanopia',
+    label: 'Tritanopia',
+    caption: 'Tritanopia — blue-cone blindness. Rare; blues and greens converge.',
+  },
+  {
+    value: 'grayscale',
+    label: 'Grayscale',
+    caption: 'Grayscale — the ultimate test: does anything here rely on color alone?',
+  },
+];
 
 function Section({
   n,
@@ -71,6 +100,7 @@ export function App() {
   const [theme, setTheme] = useState<Theme>('dark');
   const [morphing, setMorphing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [vision, setVision] = useState<VisionMode>('normal');
   const morphTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   function triggerMorph() {
@@ -136,9 +166,11 @@ export function App() {
   const glow = oklchToHex(activePalette.primary);
   const harmony = result.harmony[theme];
   const loading = status === 'loading';
+  const visionCaption = VISION_MODES.find((m) => m.value === vision)?.caption ?? '';
 
   return (
     <div className="pb-32">
+      <ColorVisionFilters />
       <AnimatePresence>
         {loading && (
           <motion.div
@@ -191,7 +223,7 @@ export function App() {
               className="pointer-events-none absolute -inset-x-8 -top-8 bottom-8 -z-10 opacity-30 blur-3xl transition-colors duration-700"
               style={{ background: `radial-gradient(55% 50% at 50% 35%, ${glow}, transparent 70%)` }}
             />
-            <div className="mb-4 flex justify-center">
+            <div className="mb-4 flex flex-col items-center gap-2.5">
               <Segmented
                 options={[
                   { value: 'light', label: 'Light' },
@@ -200,9 +232,41 @@ export function App() {
                 value={theme}
                 onChange={setTheme}
               />
+              <div className="flex flex-wrap items-center justify-center gap-1.5">
+                <span className="coord flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-400">
+                  <Eye className="h-3 w-3" />
+                  Vision
+                </span>
+                {VISION_MODES.map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setVision(m.value)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      vision === m.value
+                        ? 'bg-zinc-900 text-white'
+                        : 'border border-black/10 bg-white text-zinc-500 hover:border-black/20 hover:text-zinc-900'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="relative mx-auto max-w-4xl">
-              <SpecimenBoard palette={activePalette} morphing={morphing} />
+              <div
+                style={{
+                  filter: visionFilter(vision),
+                  transition: 'filter 0.25s var(--ease-instrument)',
+                }}
+              >
+                <SpecimenBoard palette={activePalette} morphing={morphing} />
+              </div>
+              <div className="mt-3 flex min-h-[16px] items-center justify-center">
+                {visionCaption && (
+                  <span className="coord text-center text-[11px] text-zinc-500">{visionCaption}</span>
+                )}
+              </div>
               <AnimatePresence>
                 {loading && (
                   <motion.div
