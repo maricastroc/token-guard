@@ -6,8 +6,6 @@ import { RateLimiter, type RateLimitResult } from '@/lib/rateLimit';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Per-IP budget for this route. Generation hits a paid LLM, so a fresh client
-// gets a small burst that refills slowly. Tunable via env without a code change.
 const num = (value: string | undefined, fallback: number): number => {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : fallback;
@@ -33,7 +31,6 @@ function rateLimitHeaders(rl: RateLimitResult, retryAfterSec?: number): HeadersI
 }
 
 export async function POST(req: Request) {
-  // Shed abusive/costly traffic before touching the body or the LLM.
   const rl = limiter.check(clientIp(req));
   if (!rl.allowed) {
     const retryAfterSec = Math.max(1, Math.ceil(rl.retryAfterMs / 1000));

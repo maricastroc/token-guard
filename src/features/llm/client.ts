@@ -7,18 +7,13 @@ import type { GenerateResult } from './types';
 
 const MODEL = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile';
 
-// Optional sampling temperature (LLM is stochastic; higher = more varied).
-// Omitted entirely when unset so the model/SDK default applies.
 const TEMPERATURE = ((): number | undefined => {
   const t = Number(process.env.GROQ_TEMPERATURE);
   return process.env.GROQ_TEMPERATURE !== undefined && Number.isFinite(t) ? t : undefined;
 })();
 
-// One initial attempt + one retry: a reroll usually fixes an occasional bad
-// draw, without hammering the API on a genuinely broken model/prompt.
 const MAX_ATTEMPTS = 2;
 
-/** A stochastic bad draw (bad JSON / wrong shape / empty) — worth one reroll. */
 class InvalidModelOutput extends Error {
   constructor(readonly kind: 'json' | 'shape' | 'empty') {
     super(`invalid model output: ${kind}`);
@@ -105,7 +100,7 @@ async function getProposal(
     try {
       content = await requestCompletion(groq, input);
     } catch (err) {
-      // Transport/API errors (auth, rate, 5xx) are not worth a reroll.
+      //
       if (err instanceof InvalidModelOutput) {
         lastInvalid = err;
         continue;

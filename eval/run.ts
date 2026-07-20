@@ -72,7 +72,6 @@ async function main(): Promise<void> {
   const model = cli.mode === 'mock' ? 'mock' : EVAL_MODEL;
   log(`\n▸ Eval: mode=${cli.mode} model=${model} temp=${cli.temperature} — ${SWEEP.length} sweep cases`);
 
-  // Sweep (one call per case, sequential to stay gentle on rate limits).
   const sweep: Array<{ id: string; metrics: CallMetrics }> = [];
   for (const c of SWEEP) {
     const metrics = await probeOne(c, cli);
@@ -80,7 +79,6 @@ async function main(): Promise<void> {
     log(`  ${c.id}  ${c.productType} / ${c.vibe} / ${c.scheme}`);
   }
 
-  // Variance (N repeats of a small subset).
   const variance = [];
   if (cli.variance) {
     log(`\n▸ Variance: ${VARIANCE.cases.length} cases × ${cli.repeats} repeats`);
@@ -110,7 +108,6 @@ async function main(): Promise<void> {
   const file = join(dir, `${cli.mode}-${safeModel}-${safeStamp}.json`);
   await writeFile(file, JSON.stringify(report, null, 2), 'utf8');
 
-  // Report to stdout (clean); progress went to stderr.
   process.stdout.write(renderTerminal(report) + '\n');
   log(`\n✓ JSON report written to ${file}\n`);
 }

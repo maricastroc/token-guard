@@ -49,17 +49,15 @@ describe('evaluateCall — boundary reliability (Group A)', () => {
 
   it('measures range on RAW numbers and still lets sanitize rescue the engine', () => {
     const p = mockProposal(input);
-    p.light.primary = { l: 0.5, c: 0.9, h: 400 }; // c out of 0.37, h out of 360
+    p.light.primary = { l: 0.5, c: 0.9, h: 400 };
     const m = evaluateCall(raw(JSON.stringify(p)));
 
     expect(m.shapeValid).toBe(true);
-    // relies on the P3 zod range bounds (l 0–1, c 0–0.37, h 0–360)
     expect(m.strictSchemaValid).toBe(false);
     expect(m.range).not.toBeNull();
     expect(m.range!.c.inRange).toBe(m.range!.c.total - 1);
     expect(m.range!.h.inRange).toBe(m.range!.h.total - 1);
     expect(m.range!.maxChromaOverflow).toBeCloseTo(0.9 - 0.37, 6);
-    // engine still runs: sanitize clamps, repair produces a passing palette
     expect(m.engine).not.toBeNull();
     expect(m.engine!.auditPasses).toBe(true);
   });
@@ -68,11 +66,10 @@ describe('evaluateCall — boundary reliability (Group A)', () => {
 describe('evaluateCall — creative-brief adherence (Group B)', () => {
   it('rejects a status color that leaves its hue family', () => {
     const p = mockProposal(input);
-    p.light.danger = { ...p.light.danger, h: 200 }; // blue, not red
+    p.light.danger = { ...p.light.danger, h: 200 };
     const m = evaluateCall(raw(JSON.stringify(p)));
     expect(m.status!.danger).toBe(false);
     expect(m.status!.ok).toBe(false);
-    // the other three are untouched → still conventional
     expect(m.status!.success).toBe(true);
   });
 
@@ -142,7 +139,6 @@ describe('circular statistics helpers', () => {
   });
 
   it('handles the 360/0 wraparound', () => {
-    // 359 and 1 are 2° apart, not 358° — resultant length stays high
     expect(circResultantLength([359, 0, 1])).toBeGreaterThan(0.99);
   });
 });

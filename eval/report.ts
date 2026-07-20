@@ -85,8 +85,6 @@ export function buildReport(params: {
   };
 }
 
-// ── Terminal rendering (no dependencies) ────────────────────────────────────
-
 const pct = (x: number | null, dp = 0): string =>
   x === null ? '  — ' : `${(x * 100).toFixed(dp)}%`;
 const mark = (b: boolean | null): string => (b === null ? '—' : b ? '✓' : '✗');

@@ -9,44 +9,21 @@ import {
 } from '@/features/llm/schema';
 import type { RawOutput } from './probe';
 
-/**
- * Pure measurement layer. Given the raw model text for one call, it computes
- * every metric — WITHOUT re-implementing the engine: harmony/repair/audit come
- * from running the real assembleResult() pipeline; hue math reuses hueDistance.
- * evaluateCall() is deterministic, so the whole harness is unit-testable offline.
- *
- * The metrics are grouped by "what the deterministic engine does NOT already
- * guarantee" — i.e. the LLM's actual contribution:
- *   A. boundary reliability (pre-parse, pre-sanitize),
- *   B. creative-brief adherence (hue identity the engine never touches),
- *   C. engine coupling (how good a seed the model handed the solver).
- */
-
-// ── Constants (versioned brief expectations) ────────────────────────────────
-
-/** Range limits the SYSTEM_PROMPT gives the model: l 0–1, c 0–0.37, h 0–360. */
 export const RANGE_BOUNDS = { l: 1, c: 0.37, h: 360 } as const;
 
-/**
- * Conventional OKLCH hue families for status tokens, anchored on the values the
- * offline mock itself uses (danger 25, warning 90, success 150, info 250).
- */
 export const STATUS_BANDS: Record<
   'danger' | 'warning' | 'success' | 'info',
   { center: number; tol: number }
 > = {
-  danger: { center: 25, tol: 22 }, // red
-  warning: { center: 82, tol: 30 }, // amber / yellow-orange
-  success: { center: 150, tol: 28 }, // green
-  info: { center: 250, tol: 30 }, // blue
+  danger: { center: 25, tol: 22 },
+  warning: { center: 82, tol: 30 },
+  success: { center: 150, tol: 28 },
+  info: { center: 250, tol: 30 },
 };
 
-/** The "default purple-on-white" violet/indigo band the prompt bans. */
 export const GENERIC_HUE_BAND = { lo: 265, hi: 300 } as const;
 
 type StatusToken = keyof typeof STATUS_BANDS;
-
-// ── Per-call metric shapes ──────────────────────────────────────────────────
 
 export interface RangeStat {
   inRange: number;
@@ -95,24 +72,17 @@ export interface EngineMetrics {
 
 export interface CallMetrics {
   input: GenerateInput;
-  /** Transport/API error — no text came back at all. */
   errored: boolean;
-  // A. boundary reliability
   jsonValid: boolean;
   shapeValid: boolean;
   shapeIssues: string[];
-  /** The production gate: ProposalSchema.safeParse (structure AND, after P3, ranges). */
   strictSchemaValid: boolean;
   range: RangeMetrics | null;
-  // B. creative-brief adherence
   harmony: HarmonyMetrics | null;
   status: StatusMetrics | null;
   distinct: DistinctMetrics | null;
-  // C. engine coupling
   engine: EngineMetrics | null;
 }
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
 
 const isFiniteNumber = (x: unknown): x is number =>
   typeof x === 'number' && Number.isFinite(x);
@@ -191,8 +161,6 @@ function computeRange(p: Proposal): RangeMetrics {
   };
 }
 
-// ── evaluateCall: raw text → metrics ────────────────────────────────────────
-
 function emptyCall(input: GenerateInput, errored: boolean): CallMetrics {
   return {
     input,
@@ -219,7 +187,7 @@ export function evaluateCall(raw: RawOutput): CallMetrics {
   try {
     parsed = JSON.parse(raw.rawText);
   } catch {
-    return base; // jsonValid stays false
+    return base;
   }
   base.jsonValid = true;
 
@@ -230,15 +198,11 @@ export function evaluateCall(raw: RawOutput): CallMetrics {
 
   if (!shape.ok) return base;
 
-  // Shape is valid → numeric l/c/h everywhere. Ranges measured on RAW numbers
-  // (pre-sanitize); everything engine-side comes from the real pipeline, whose
-  // sanitize() rescues any out-of-range values just like production would.
   const proposal = parsed as Proposal;
   base.range = computeRange(proposal);
 
   const result = assembleResult(proposal, raw.source);
 
-  // B1 — harmony (repair preserves hue, so post-repair == the model's decision).
   const devTokens = [
     ...result.harmony.light.deviations,
     ...result.harmony.dark.deviations,
@@ -249,7 +213,6 @@ export function evaluateCall(raw: RawOutput): CallMetrics {
     deviatingTokens: Array.from(new Set(devTokens.map((d) => d.token))),
   };
 
-  // B2 — status conventions (hue must land in the right family in BOTH themes).
   const statusOk = (token: StatusToken): boolean =>
     inBand(result.proposal.light[token].h, STATUS_BANDS[token]) &&
     inBand(result.proposal.dark[token].h, STATUS_BANDS[token]);
@@ -263,7 +226,6 @@ export function evaluateCall(raw: RawOutput): CallMetrics {
   status.ok = status.danger && status.warning && status.success && status.info;
   base.status = status;
 
-  // B3a — distinctiveness (primary hue outside the generic violet/indigo band).
   const primary = result.proposal.light.primary;
   const primaryHue = ((primary.h % 360) + 360) % 360;
   base.distinct = {
@@ -273,7 +235,6 @@ export function evaluateCall(raw: RawOutput): CallMetrics {
     avoidsGeneric: !(primaryHue >= GENERIC_HUE_BAND.lo && primaryHue <= GENERIC_HUE_BAND.hi),
   };
 
-  // C1/C2 — repair load & infeasibility (straight from the engine's own output).
   const steps = [...result.trace.light, ...result.trace.dark];
   const absDeltas = steps.map((s) => Math.abs(s.deltaL));
   base.engine = {
@@ -286,8 +247,6 @@ export function evaluateCall(raw: RawOutput): CallMetrics {
 
   return base;
 }
-
-// ── Aggregation ─────────────────────────────────────────────────────────────
 
 export const mean = (xs: number[]): number =>
   xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -396,8 +355,6 @@ export function aggregate(calls: CallMetrics[]): Aggregate {
       : null,
   };
 }
-
-// ── Variance (same input, N repeats) ────────────────────────────────────────
 
 export interface VarianceStat {
   id: string;

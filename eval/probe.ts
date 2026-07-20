@@ -3,16 +3,6 @@ import { buildUserPrompt, SYSTEM_PROMPT } from '@/features/llm/prompt';
 import { mockProposal } from '@/features/llm/mock';
 import type { GenerateInput } from '@/features/llm/schema';
 
-/**
- * The harness talks to the model through the SAME prompt the product uses
- * (SYSTEM_PROMPT + buildUserPrompt) but keeps its own thin client so it can
- * capture the RAW string before JSON.parse / schema validation — the two things
- * the production client (client.ts) throws away, and exactly where model
- * reliability lives. It does not touch the cage; it re-measures the cage's seam.
- */
-
-// Recomputed (not imported) so the harness stays a standalone apparatus; matches
-// the expression in client.ts. Keep in sync if the production default changes.
 export const EVAL_MODEL = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile';
 
 export type ProbeMode = 'mock' | 'real';
@@ -22,9 +12,7 @@ export interface RawOutput {
   source: 'llm' | 'mock';
   model: string;
   temperature: number;
-  /** Raw model text, exactly as returned, before any parsing. Null if the call errored. */
   rawText: string | null;
-  /** Transport/API error (network, 429, empty response) — distinct from bad JSON. */
   error?: string;
 }
 
