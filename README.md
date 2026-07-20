@@ -88,7 +88,7 @@
 
 ## 📝 Project Description
 
-Palette Check answers a question most colour tools dodge: **can this palette's accessibility be _guaranteed_, or only hoped for?**
+Token Guard answers a question most colour tools dodge: **can this palette's accessibility be _guaranteed_, or only hoped for?**
 
 You describe a product; a language model proposes a core palette — the creative part: hue, chroma, brand personality. From there, nothing is left to chance. A pure, deterministic engine materializes the full 18-token set, clamps it to the sRGB gamut, and checks it against 19 contrast rules. Where a token fails, the engine **repairs it by moving only its lightness** onto the nearest value that passes — never touching the hue or chroma the model chose. Because only lightness moves, the palette stays in harmony automatically, and the fix is the _minimum_ change that clears the rule.
 
@@ -158,7 +158,7 @@ prompt → propose (LLM)     — hue, chroma, brand personality                 
 
 ## 🧬 The vocabulary
 
-Palette Check doesn't grade a colour "good" or "bad". It classifies each token's relationship to the contrast rules — a read on _how_ its accessibility was reached:
+Token Guard doesn't grade a colour "good" or "bad". It classifies each token's relationship to the contrast rules — a read on _how_ its accessibility was reached:
 
 | Term                 | What it means                                                                                                                             |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |

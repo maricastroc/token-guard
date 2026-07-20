@@ -6,7 +6,7 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Palette Check — accessible design tokens',
+  title: 'Token Guard — accessible design tokens',
   description:
     'Generate accessible light and dark design tokens for real interfaces. LLM proposes, math guarantees.',
 };
