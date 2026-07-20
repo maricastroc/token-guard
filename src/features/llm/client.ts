@@ -133,7 +133,7 @@ async function getProposal(
         lastInvalid = err;
         continue;
       }
-      throw err; // UnusableInputError (or anything else) propagates — no retry
+      throw err;
     }
   }
 

@@ -17,8 +17,6 @@ describe('isPlausibleProductType — the cheap deterministic guard', () => {
   });
 
   it('does NOT try to catch semantic gibberish — that is the model’s job', () => {
-    // letters, length, and >1 distinct char → passes the cheap guard by design;
-    // "dssadsadsa" is exactly the case only the LLM-judge can refuse.
     expect(isPlausibleProductType('dssadsadsa')).toBe(true);
   });
 });

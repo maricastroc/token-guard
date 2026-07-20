@@ -59,7 +59,6 @@ export async function POST(req: Request) {
     const result = await generatePalette(parsed.data);
     return NextResponse.json(result, { headers: rateLimitHeaders(rl) });
   } catch (err) {
-    // A deliberate model refusal is not a failure — surface it honestly as 422.
     if (err instanceof UnusableInputError) {
       return NextResponse.json(
         { error: err.reason, unusable: true },
