@@ -315,7 +315,7 @@ Then open the **tuner**, drag the brand hue, and watch the audit and repair trac
 
 Released under the MIT License. You're free to use, study, fork and build on this code — **as long as the original copyright and license notice are kept**. Reuse it and learn from it; don't strip the attribution and present it as your own.
 
-© 2026 Mariana Castro
+© 2026 [**Mariana Castro**](https://marianacastro.dev) · [Live demo](https://token-guard.marianacastro.dev)
 
 <br/>
 
